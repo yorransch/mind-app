@@ -130,7 +130,11 @@ import { CommonModule } from '@angular/common';
     }
 
     @media (max-width: 768px) {
-      .mobile-toggle { display: flex; }
+      .mobile-toggle { 
+        display: flex;
+        z-index: 5002;
+        position: relative;
+      }
       .nav {
         display: none;
         position: fixed;
@@ -138,6 +142,9 @@ import { CommonModule } from '@angular/common';
         left: 0;
         right: 0;
         bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        min-height: 100vh;
         background: #ffffff;
         flex-direction: column;
         padding: 2rem;
@@ -147,7 +154,9 @@ import { CommonModule } from '@angular/common';
         overflow-y: auto;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       }
-      .nav.open { display: flex; }
+      .nav.open { 
+        display: flex !important;
+      }
       .header-actions {
         width: 100%;
         flex-direction: column;
