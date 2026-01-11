@@ -10,7 +10,7 @@ import { CommonModule } from '@angular/common';
   template: `
     <header class="header glass sticky">
       <div class="container header-content">
-        <div class="logo" routerLink="/">
+        <div class="logo" (click)="navigateHome()" style="cursor: pointer;">
           <span class="logo-icon">M</span>
           <span class="logo-text">MIND</span>
         </div>
@@ -184,5 +184,13 @@ export class HeaderComponent {
   closeMenuAndNavigate(path: string) {
     this.isMenuOpen = false;
     this.router.navigate([path]);
+  }
+
+  navigateHome() {
+    if (this.user()) {
+      this.router.navigate(['/youth']);
+    } else {
+      this.router.navigate(['/login']);
+    }
   }
 }
