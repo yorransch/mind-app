@@ -134,13 +134,14 @@ import { CommonModule } from '@angular/common';
       .nav {
         display: none;
         position: fixed;
-        top: 60px;
+        top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         background: #ffffff;
         flex-direction: column;
         padding: 2rem;
+        padding-top: 80px;
         gap: 1.5rem;
         z-index: 5001;
         overflow-y: auto;
