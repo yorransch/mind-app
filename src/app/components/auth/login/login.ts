@@ -44,7 +44,9 @@ import { CommonModule } from '@angular/common';
             {{ isLoginMode ? (isLoading() ? t().loadingLogin : t().loginTab) : (isLoading() ? t().loadingRegister : t().registerTab) }}
           </button>
 
+          <!-- Google Login desactivado temporalmente por restricciones de dominio en producción
           <div id="google-btn-container" style="min-height: 40px; margin-top: 1rem;"></div>
+          -->
         </form>
 
         <!-- Formulario de Verificación -->
