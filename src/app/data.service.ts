@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { User, UserRole, CheckIn, Alert, Resource } from './models';
+import { User, UserRole, CheckIn, Alert, Resource, DiaryEntry } from './models';
 
 @Injectable({
     providedIn: 'root'
@@ -9,29 +9,28 @@ export class DataService {
     private keyAlerts = 'mind_alerts';
     private keyUser = 'mind_user';
     private keyUsersList = 'mind_users_list';
+    private keyDiary = 'mind_diary';
 
     currentUser = signal<User | null>(this.loadUser());
     lang = signal<'es' | 'eu'>('es');
+    checkInsSignal = signal<CheckIn[]>([]);
+    diarySignal = signal<DiaryEntry[]>([]);
 
     constructor() {
         this.initMockData();
+        this.refreshCheckIns();
+        this.refreshDiary();
     }
 
     private initMockData() {
         if (!localStorage.getItem(this.keyCheckIns)) {
-            const mockCheckIns: CheckIn[] = [
-                { id: '1', userId: 'u1', timestamp: new Date(Date.now() - 86400000 * 2), mood: 'happy', anxiety: 3, energy: 7, sleptWell: true, notes: 'Buen día' },
-                { id: '2', userId: 'u1', timestamp: new Date(Date.now() - 86400000), mood: 'neutral', anxiety: 5, energy: 5, sleptWell: false, notes: 'Un poco cansada' },
-                { id: '3', userId: 'u2', timestamp: new Date(Date.now() - 86400000), mood: 'sad', anxiety: 9, energy: 2, sleptWell: false, notes: 'Mucha presión en el instituto' }
-            ];
-            localStorage.setItem(this.keyCheckIns, JSON.stringify(mockCheckIns));
+            localStorage.setItem(this.keyCheckIns, JSON.stringify([]));
         }
-
         if (!localStorage.getItem(this.keyAlerts)) {
-            const mockAlerts: Alert[] = [
-                { id: 'a1', userId: 'u2', timestamp: new Date(), type: 'anxiety', severity: 'red', resolved: false }
-            ];
-            localStorage.setItem(this.keyAlerts, JSON.stringify(mockAlerts));
+            localStorage.setItem(this.keyAlerts, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(this.keyDiary)) {
+            localStorage.setItem(this.keyDiary, JSON.stringify([]));
         }
     }
 
@@ -47,10 +46,11 @@ export class DataService {
             email,
             role,
             isVerified: true,
-            points: 100
+            points: 0
         };
         localStorage.setItem(this.keyUser, JSON.stringify(user));
         this.currentUser.set(user);
+        this.refreshCheckIns();
     }
 
     loginWithName(name: string, email: string, role: UserRole) {
@@ -71,7 +71,7 @@ export class DataService {
             password,
             role,
             isVerified: false, // User must verify email
-            points: 100
+            points: 0
         };
 
         users.push(newUser);
@@ -98,6 +98,7 @@ export class DataService {
             // Auto login after verification
             localStorage.setItem(this.keyUser, JSON.stringify(user));
             this.currentUser.set(user);
+            this.refreshCheckIns();
 
             return { success: true, message: 'Email verificado correctamente.' };
         }
@@ -123,7 +124,15 @@ export class DataService {
 
         localStorage.setItem(this.keyUser, JSON.stringify(user));
         this.currentUser.set(user);
+        this.refreshCheckIns();
         return { success: true, message: 'Sesión iniciada.' };
+    }
+
+    deleteCheckIn(id: string) {
+        let allCheckIns = this.getAllCheckIns();
+        allCheckIns = allCheckIns.filter(c => c.id !== id);
+        localStorage.setItem(this.keyCheckIns, JSON.stringify(allCheckIns));
+        this.refreshCheckIns();
     }
 
     private getUsersList(): User[] {
@@ -134,6 +143,7 @@ export class DataService {
     logout() {
         localStorage.removeItem(this.keyUser);
         this.currentUser.set(null);
+        this.refreshCheckIns();
     }
 
     saveCheckIn(data: Omit<CheckIn, 'id' | 'userId' | 'timestamp'>) {
@@ -143,7 +153,7 @@ export class DataService {
         const allCheckIns = this.getAllCheckIns();
         const newCheckIn: CheckIn = {
             ...data,
-            id: Math.random().toString(36).substr(2, 9),
+            id: 'ci_' + Date.now(),
             userId: user.id,
             timestamp: new Date()
         };
@@ -151,15 +161,71 @@ export class DataService {
         allCheckIns.push(newCheckIn);
         localStorage.setItem(this.keyCheckIns, JSON.stringify(allCheckIns));
 
-        // Check for alerts
-        this.evaluateAlerts(newCheckIn, allCheckIns);
+        // Evaluate alerts
+        this.evaluateAlerts();
+        this.refreshCheckIns();
 
-        // Gamification
+        // Add 10 points
         if (user.points !== undefined) {
-            user.points += 10;
-            this.currentUser.set({ ...user });
+            user.points = (user.points || 0) + 10;
             localStorage.setItem(this.keyUser, JSON.stringify(user));
+            this.currentUser.set(user);
+
+            // También actualizamos la lista global de usuarios
+            const users = this.getUsersList();
+            const index = users.findIndex(u => u.email === user.email);
+            if (index !== -1) {
+                users[index].points = user.points;
+                localStorage.setItem(this.keyUsersList, JSON.stringify(users));
+            }
         }
+    }
+
+    refreshDiary() {
+        const data = localStorage.getItem(this.keyDiary);
+        const entries: DiaryEntry[] = data ? JSON.parse(data) : [];
+        const user = this.currentUser();
+        if (!user) {
+            this.diarySignal.set([]);
+            return;
+        }
+
+        const userEntries = entries
+            .filter(e => e.userId === user.id)
+            .map(e => ({ ...e, timestamp: new Date(e.timestamp) }))
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+        this.diarySignal.set(userEntries);
+    }
+
+    saveDiaryEntry(content: string) {
+        const user = this.currentUser();
+        if (!user) return;
+
+        const data = localStorage.getItem(this.keyDiary);
+        const entries: DiaryEntry[] = data ? JSON.parse(data) : [];
+
+        const newEntry: DiaryEntry = {
+            id: Math.random().toString(36).substr(2, 9),
+            userId: user.id,
+            content,
+            timestamp: new Date()
+        };
+
+        entries.push(newEntry);
+        localStorage.setItem(this.keyDiary, JSON.stringify(entries));
+        this.refreshDiary();
+    }
+
+    deleteDiaryEntry(id: string) {
+        let data = localStorage.getItem(this.keyDiary);
+        if (!data) return;
+
+        let entries: DiaryEntry[] = JSON.parse(data);
+        entries = entries.filter(e => e.id !== id);
+
+        localStorage.setItem(this.keyDiary, JSON.stringify(entries));
+        this.refreshDiary();
     }
 
     getCheckIns(): CheckIn[] {
@@ -172,7 +238,21 @@ export class DataService {
     private getAllCheckIns(): CheckIn[] {
         const data = localStorage.getItem(this.keyCheckIns);
         const parsed = data ? JSON.parse(data) : [];
-        return parsed.map((c: any) => ({ ...c, timestamp: new Date(c.timestamp) }));
+        // Map timestamps back to Date objects
+        return parsed.map((c: any) => ({
+            ...c,
+            timestamp: typeof c.timestamp === 'string' ? new Date(c.timestamp) : c.timestamp
+        }));
+    }
+
+    refreshCheckIns() {
+        const user = this.currentUser();
+        if (!user) {
+            this.checkInsSignal.set([]);
+            return;
+        }
+        const filtered = this.getAllCheckIns().filter(c => c.userId === user.id);
+        this.checkInsSignal.set(filtered);
     }
 
     loginWithGoogle(role: UserRole, customEmail?: string, customName?: string) {
@@ -189,7 +269,7 @@ export class DataService {
                 email,
                 role,
                 isVerified: true, // Google users are pre-verified
-                points: 150
+                points: 0
             };
             users.push(user);
             localStorage.setItem(this.keyUsersList, JSON.stringify(users));
@@ -197,12 +277,20 @@ export class DataService {
 
         localStorage.setItem(this.keyUser, JSON.stringify(user));
         this.currentUser.set(user);
+        this.refreshCheckIns();
     }
 
-    private evaluateAlerts(current: CheckIn, all: CheckIn[]) {
-        const alerts = this.getAllAlerts();
-        const userCheckIns = all.filter(c => c.userId === current.userId).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    private evaluateAlerts() {
+        const user = this.currentUser();
+        if (!user) return;
 
+        const allCheckIns = this.getAllCheckIns();
+        const userCheckIns = allCheckIns.filter(c => c.userId === user.id).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+        if (userCheckIns.length === 0) return;
+
+        const current = userCheckIns[0];
+        const alerts = this.getAllAlerts();
         let newAlertAdded = false;
 
         // Rule: Anxiety > 8
@@ -221,6 +309,7 @@ export class DataService {
         if (userCheckIns.length >= 3) {
             const moodValues = { 'very-happy': 4, 'happy': 3, 'neutral': 2, 'sad': 1 };
             const statuses = userCheckIns.slice(0, 3).map(c => moodValues[c.mood]);
+            // Check if trend is worsening: current (0) < prev (1) < prevprev (2)
             if (statuses[0] < statuses[1] && statuses[1] < statuses[2]) {
                 alerts.push(this.createAlert(current.userId, 'trend', 'yellow'));
                 newAlertAdded = true;
@@ -287,24 +376,47 @@ export class DataService {
         return [
             {
                 id: '1',
-                name: 'Centro de Salud Mental Joven',
-                nameEu: 'Gazteentzako Osasun Mentaleko Zentroa',
-                description: 'Apoyo psicológico especializado para jóvenes.',
-                descriptionEu: 'Gazteentzako laguntza psikologiko espezializatua.',
+                name: 'Red de Salud Mental de Araba (Osakidetza)',
+                nameEu: 'Arabako Osasun Mentaleko Sarea (Osakidetza)',
+                description: 'Atención especializada en salud mental en el CSM de Vitoria-Gasteiz.',
+                descriptionEu: 'Osasun mentaleko arreta espezializatua Gasteizko OMEan.',
                 category: 'health',
-                phone: '944 000 000',
-                address: 'Gran Vía 45, Bilbao',
-                location: { lat: 43.263, lng: -2.935 }
+                phone: '945 006 000',
+                address: 'Calle Olaguíbel, 29, 01004 Vitoria-Gasteiz',
+                location: { lat: 42.8467, lng: -2.6685 }
             },
             {
                 id: '2',
-                name: 'Teléfono Contra el Suicidio',
-                nameEu: 'Suizidioaren aurkako telefonoa',
-                description: 'Atención inmediata y anónima 24/7.',
-                descriptionEu: 'Berehalako arreta anonimoa, eguneko 24 orduetan.',
+                name: 'OMIJ - Oficina Municipal de Información Joven',
+                nameEu: 'OMIJ - Gazteentzako Informazio Bulegoa',
+                description: 'Asesoría psicológica gratuita para jóvenes en Gasteiz.',
+                descriptionEu: 'Gazteentzako doako aholku psikologikoa Gasteizen.',
+                category: 'health',
+                phone: '945 161 330',
+                address: 'Plaza de España, 1, 01001 Vitoria-Gasteiz',
+                location: { lat: 42.8463, lng: -2.6735 }
+            },
+            {
+                id: '3',
+                name: 'ASAFES - Asociación Alavesa de Salud Mental',
+                nameEu: 'ASAFES - Arabako Osasun Mentaleko Elkartea',
+                description: 'Apoyo a familias y personas con enfermedad mental en Álava.',
+                descriptionEu: 'Arabako buru gaixotasuna duten pertsonei eta senideei laguntza.',
+                category: 'association',
+                phone: '945 288 648',
+                address: 'Calle Amapola, 11, 01003 Vitoria-Gasteiz',
+                location: { lat: 42.8530, lng: -2.6660 }
+            },
+            {
+                id: '4',
+                name: 'Urgencias Osakidetza - Hospital Santiago',
+                nameEu: 'Osakidetzako Larrialdiak - Santiago Ospitalea',
+                description: 'Atención de emergencias 24h en el centro de Vitoria.',
+                descriptionEu: '24 orduko larrialdi-arreta Gasteizko erdialdean.',
                 category: 'emergency',
-                phone: '024',
-                address: 'Nacional',
+                phone: '945 007 000',
+                address: 'Calle Olaguíbel, 29, 01004 Vitoria-Gasteiz',
+                location: { lat: 42.8468, lng: -2.6680 }
             }
         ];
     }

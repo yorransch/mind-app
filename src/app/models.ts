@@ -45,3 +45,10 @@ export interface Alert {
   severity: 'yellow' | 'red';
   resolved: boolean;
 }
+
+export interface DiaryEntry {
+  id: string;
+  userId: string;
+  content: string;
+  timestamp: Date;
+}

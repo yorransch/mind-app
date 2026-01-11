@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { DataService } from '../../../data.service';
 import { CommonModule } from '@angular/common';
 
@@ -17,20 +17,20 @@ import { CommonModule } from '@angular/common';
 
         <nav class="nav" [class.open]="isMenuOpen">
           <ng-container *ngIf="user()">
-            <a *ngIf="user()?.role === 'youth'" routerLink="/youth" routerLinkActive="active" class="nav-link">{{ dataService.t().home }}</a>
-            <a *ngIf="user()?.role === 'youth'" routerLink="/youth/check-in" routerLinkActive="active" class="nav-link">{{ dataService.t().checkIn }}</a>
-            <a routerLink="/youth/resources" routerLinkActive="active" class="nav-link">{{ dataService.t().resources }}</a>
-            <a *ngIf="user()?.role === 'professional'" routerLink="/professional" routerLinkActive="active" class="nav-link">Pacientes</a>
+            <a *ngIf="user()?.role === 'youth'" routerLink="/youth" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().home }}</a>
+            <a *ngIf="user()?.role === 'youth'" routerLink="/youth/check-in" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().checkIn }}</a>
+            <a routerLink="/youth/resources" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().resources }}</a>
+            <a *ngIf="user()?.role === 'professional'" routerLink="/professional" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">Pacientes</a>
           </ng-container>
           
-          <a *ngIf="!user()" routerLink="/login" class="nav-link">{{ dataService.t().login }}</a>
+          <a *ngIf="!user()" routerLink="/login" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().login }}</a>
           
           <div class="header-actions">
             <div class="lang-toggle-header">
                 <button (click)="dataService.setLanguage('es')" [class.active]="dataService.lang() === 'es'">ES</button>
                 <button (click)="dataService.setLanguage('eu')" [class.active]="dataService.lang() === 'eu'">EU</button>
             </div>
-            <button *ngIf="user()" (click)="logout()" class="btn btn-outline btn-sm">{{ dataService.t().logout }}</button>
+            <button *ngIf="user()" (click)="logout(); isMenuOpen = false" class="btn btn-outline btn-sm">{{ dataService.t().logout }}</button>
           </div>
         </nav>
 
@@ -131,25 +131,39 @@ import { CommonModule } from '@angular/common';
       .mobile-toggle { display: flex; }
       .nav {
         display: none;
-        position: absolute;
-        top: 100%;
+        position: fixed;
+        top: 60px;
         left: 0;
         right: 0;
+        bottom: 0;
         background: white;
         flex-direction: column;
         padding: 2rem;
-        box-shadow: var(--shadow-lg);
+        gap: 1.5rem;
+        z-index: 1001;
       }
       .nav.open { display: flex; }
+      .header-actions {
+        width: 100%;
+        flex-direction: column;
+        margin-top: auto;
+        padding-top: 2rem;
+        border-top: 1px solid #f1f5f9;
+      }
+      .lang-toggle-header { width: 100%; justify-content: center; padding: 4px; }
+      .lang-toggle-header button { flex: 1; padding: 8px; }
+      .btn-sm { width: 100%; padding: 12px; }
     }
   `]
 })
 export class HeaderComponent {
   dataService = inject(DataService);
+  router = inject(Router);
   user = this.dataService.currentUser;
   isMenuOpen = false;
 
   logout() {
     this.dataService.logout();
+    this.router.navigate(['/login']);
   }
 }

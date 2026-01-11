@@ -15,7 +15,7 @@ import { ChatComponent } from '../../shared/chat/chat';
       <header class="dashboard-header">
         <div class="welcome-section">
           <h1>{{ t().hi }}, {{ user()?.name }}! 👋</h1>
-          <p>{{ t().subtitle }}</p>
+          <p>{{ t().subtitle }} | 📍 <strong>Vitoria-Gasteiz</strong></p>
         </div>
         <div class="stats-grid">
           <div class="stat-card">
@@ -23,11 +23,11 @@ import { ChatComponent } from '../../shared/chat/chat';
             <span class="stat-label">✨ {{ t().points }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-value">{{ checkIns.length }}</span>
+            <span class="stat-value">{{ checkIns().length }}</span>
             <span class="stat-label">📝 {{ t().checks }}</span>
           </div>
           <div class="stat-card">
-            <span class="stat-value">3</span>
+            <span class="stat-value">0</span>
             <span class="stat-label">🔥 {{ t().streak }}</span>
           </div>
         </div>
@@ -54,19 +54,42 @@ import { ChatComponent } from '../../shared/chat/chat';
             <button class="btn btn-primary btn-sm" (click)="newCheckIn()">+ {{ t().newCheck }}</button>
           </div>
           <div class="history-list">
-            <div class="history-item" *ngFor="let item of checkIns.slice(0, 5)">
+            <div class="history-item" *ngFor="let item of checkIns()" (click)="viewDetail(item)">
               <div class="history-mood">{{ getMoodEmoji(item.mood) }}</div>
               <div class="history-info">
                 <span class="history-date">{{ item.timestamp | date:'short' }}</span>
                 <div class="history-metrics">
-                  <span class="badge anxiety">Ans: {{ item.anxiety }}</span>
-                  <span class="badge energy">Ene: {{ item.energy }}</span>
+                  <span class="badge anxiety">{{ t().anxiety }}: {{ item.anxiety }}</span>
+                  <span class="badge energy">{{ t().energy }}: {{ item.energy }}</span>
                 </div>
               </div>
+              <button class="btn-delete" (click)="deleteItem(item.id); $event.stopPropagation()" [title]="t().delete">🗑️</button>
             </div>
-            <div *ngIf="checkIns.length === 0" class="empty-state">
+            <div *ngIf="checkIns().length === 0" class="empty-state">
                {{ t().noData }}
             </div>
+          </div>
+        </section>
+
+        <section class="card diary-card">
+          <div class="card-header">
+            <h2>📖 {{ t().diaryTitle }}</h2>
+          </div>
+          <div class="diary-input-area">
+            <textarea [(ngModel)]="diaryContent" [placeholder]="t().diaryPlaceholder" rows="3"></textarea>
+            <button class="btn btn-primary btn-sm" (click)="saveDiary()" [disabled]="!diaryContent.trim()">{{ t().saveBtn }}</button>
+          </div>
+          <div class="diary-list">
+             <div class="diary-item" *ngFor="let entry of diaryEntries()">
+                <div class="diary-header">
+                    <span class="diary-date">{{ entry.timestamp | date:'short' }}</span>
+                    <button class="btn-delete" (click)="deleteDiary(entry.id); $event.stopPropagation()" [title]="t().delete">🗑️</button>
+                </div>
+                <div class="diary-content">{{ entry.content }}</div>
+             </div>
+             <div *ngIf="diaryEntries().length === 0" class="empty-state">
+                {{ t().diaryEmpty }}
+             </div>
           </div>
         </section>
 
@@ -80,10 +103,6 @@ import { ChatComponent } from '../../shared/chat/chat';
             <button class="action-btn" (click)="showChat = true">
               <span class="action-icon">💬</span>
               <span>{{ t().supportChat }}</span>
-            </button>
-            <button class="action-btn">
-              <span class="action-icon">📅</span>
-              <span>{{ t().appoint }}</span>
             </button>
             <button class="action-btn" (click)="callEmergency()">
               <span class="action-icon">🆘</span>
@@ -105,6 +124,42 @@ import { ChatComponent } from '../../shared/chat/chat';
         <div class="modal-content chat-modal glass" (click)="$event.stopPropagation()">
           <app-chat></app-chat>
           <button class="btn btn-primary" (click)="showChat = false" style="margin-top: 1rem">{{ t().close }}</button>
+        </div>
+      </div>
+
+
+      <!-- Modal de Detalle de Registro -->
+      <div class="modal-overlay" *ngIf="selectedCheckIn" (click)="selectedCheckIn = null">
+        <div class="modal-content detail-modal glass animate-fade" (click)="$event.stopPropagation()">
+          <header class="detail-header">
+            <span class="detail-emoji">{{ getMoodEmoji(selectedCheckIn.mood) }}</span>
+            <h2>{{ t().detailTitle }}</h2>
+            <p>{{ selectedCheckIn.timestamp | date:'long' }}</p>
+          </header>
+          
+          <div class="detail-body">
+            <div class="detail-grid">
+              <div class="detail-stat">
+                <label>{{ t().anxiety }}</label>
+                <div class="val">{{ selectedCheckIn.anxiety }}/10</div>
+              </div>
+              <div class="detail-stat">
+                <label>{{ t().energy }}</label>
+                <div class="val">{{ selectedCheckIn.energy }}/10</div>
+              </div>
+            </div>
+            
+            <div class="detail-sleep">
+               <span>🌙 {{ selectedCheckIn.sleptWell ? t().sleepYes : t().sleepNo }}</span>
+            </div>
+
+            <div class="detail-notes" *ngIf="selectedCheckIn.notes">
+              <label>{{ t().notesLabel }}</label>
+              <p>"{{ selectedCheckIn.notes }}"</p>
+            </div>
+          </div>
+          
+          <button class="btn btn-primary" (click)="selectedCheckIn = null">{{ t().close }}</button>
         </div>
       </div>
     </div>
@@ -150,6 +205,20 @@ import { ChatComponent } from '../../shared/chat/chat';
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 50%;
+      transition: background 0.2s;
+      opacity: 0.6;
+    }
+    .btn-delete:hover {
+      background: #fee2e2;
+      opacity: 1;
     }
     .alert-banner {
       background: var(--danger);
@@ -252,9 +321,92 @@ import { ChatComponent } from '../../shared/chat/chat';
       flex-direction: column;
     }
 
+    .detail-modal {
+      text-align: left;
+      max-width: 500px;
+    }
+    .detail-header { text-align: center; margin-bottom: 2rem; }
+    .detail-emoji { font-size: 4rem; display: block; margin-bottom: 0.5rem; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .detail-stat { background: #f1f5f9; padding: 1rem; border-radius: 12px; text-align: center; }
+    .detail-stat label { display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+    .detail-stat .val { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+    .detail-sleep { margin-bottom: 1.5rem; font-weight: 600; text-align: center; color: var(--text-main); }
+    .detail-notes { background: #f8fafc; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); }
+    .detail-notes label { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 0.5rem; }
+    .detail-notes p { font-style: italic; color: var(--text-main); margin: 0; }
+    .history-item { cursor: pointer; transition: transform 0.2s; }
+    .history-item:hover { transform: translateX(5px); background: #f1f5f9; }
+
     @media (max-width: 992px) {
       .dashboard-grid { grid-template-columns: 1fr; }
       .dashboard-header { flex-direction: column; align-items: stretch; }
+    }
+    
+    .diary-input-area {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .diary-input-area textarea {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        resize: vertical;
+        font-family: inherit;
+        background: #fff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .diary-input-area textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .diary-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+    .diary-item {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: var(--radius-md);
+        border-left: 4px solid var(--primary);
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .diary-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .diary-date {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+    .diary-content {
+        white-space: pre-wrap;
+        color: var(--text-main);
+        line-height: 1.5;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+        font-style: italic;
+        background: #f8fafc;
+        border-radius: var(--radius-md);
+        border: 2px dashed #e2e8f0;
     }
   `]
 })
@@ -262,7 +414,9 @@ export class YouthDashboardComponent {
   dataService = inject(DataService);
   router = inject(Router);
   user = this.dataService.currentUser;
-  checkIns = this.dataService.getCheckIns();
+  checkIns = this.dataService.checkInsSignal;
+  diaryEntries = this.dataService.diarySignal;
+  diaryContent = '';
 
   showBreathing = false;
   showChat = false;
@@ -283,9 +437,21 @@ export class YouthDashboardComponent {
       quick: 'Acciones Rápidas',
       breathe: 'Respirar',
       supportChat: 'Chat de Apoyo',
-      appoint: 'Cita con Orientador',
       emergency: 'Emergencias',
-      close: 'Cerrar'
+      close: 'Cerrar',
+      anxiety: 'Ansiedad',
+      energy: 'Energía',
+      sleep: 'He dormido bien hoy',
+      notesLabel: '¿Quieres añadir algo más?',
+      notesPlaceholder: 'Escribe tus pensamientos aquí...',
+      saveBtn: 'Guardar Evolución',
+      delete: 'Eliminar registro',
+      detailTitle: 'Detalle del Registro',
+      sleepYes: 'Descansé bien',
+      sleepNo: 'No descansé bien',
+      diaryTitle: 'Mini Diario Personal',
+      diaryPlaceholder: 'Escribe aquí lo que te preocupa o lo que te ha hecho sentir mejor hoy...',
+      diaryEmpty: 'Tu diario está vacío. ¡Empieza a escribir!',
     },
     eu: {
       hi: 'Kaixo',
@@ -302,9 +468,19 @@ export class YouthDashboardComponent {
       quick: 'Ekintza Azkarrak',
       breathe: 'Arnasa hartu',
       supportChat: 'Laguntza Txata',
-      appoint: 'Orientatzailearekin hitzordua',
       emergency: 'Larrialdiak',
-      close: 'Itxi'
+      close: 'Itxi',
+      anxiety: 'Ansietatea',
+      energy: 'Energia',
+      delete: 'Ezabatu erregistroa',
+      detailTitle: 'Erregistroaren xehetasuna',
+      sleepYes: 'Ondo deskantsatu dut',
+      sleepNo: 'Ez dut ondo deskantsatu',
+      notesLabel: 'Oharrak',
+      saveBtn: 'Gorde',
+      diaryTitle: 'Eguneroko Txikia',
+      diaryPlaceholder: 'Idatzi hemen kezkatzen zaituena edo gaur hobeto sentiarazi zaituena...',
+      diaryEmpty: 'Zure egunerokoa hutsik dago. Hasi idazten!',
     }
   };
 
@@ -324,7 +500,36 @@ export class YouthDashboardComponent {
     this.router.navigate(['/youth/check-in']);
   }
 
+  deleteItem(id: string) {
+    if (confirm(this.lang() === 'es' ? '¿Seguro que quieres eliminar este registro?' : 'Ziur zaude erregistro hau ezabatu nahi duzula?')) {
+      this.dataService.deleteCheckIn(id);
+    }
+  }
+
+  lang() {
+    return this.dataService.lang();
+  }
+
+  viewDetail(item: any) {
+    this.selectedCheckIn = item;
+  }
+
+  selectedCheckIn: any = null;
+
   callEmergency() {
     window.open('tel:024');
   }
+
+  saveDiary() {
+    if (!this.diaryContent.trim()) return;
+    this.dataService.saveDiaryEntry(this.diaryContent);
+    this.diaryContent = '';
+  }
+
+  deleteDiary(id: string) {
+    if (confirm(this.lang() === 'es' ? '¿Borrar esta entrada?' : 'Sarrera hau ezabatu?')) {
+      this.dataService.deleteDiaryEntry(id);
+    }
+  }
+
 }

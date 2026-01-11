@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect } from '@angular/core';
+import { Component, inject, signal, effect, AfterViewInit, NgZone } from '@angular/core';
 import { Router } from '@angular/router';
 import { DataService } from '../../../data.service';
 import { FormsModule } from '@angular/forms';
@@ -38,36 +38,13 @@ import { CommonModule } from '@angular/common';
             <input type="password" [(ngModel)]="password" name="password" required placeholder="••••••••">
           </div>
           
-          <div class="role-selector" *ngIf="!isLoginMode">
-            <label>{{ t().roleLabel }}</label>
-            <div class="roles">
-              <button type="button" 
-                [class.active]="role === 'youth'" 
-                (click)="role = 'youth'">
-                {{ t().youth }}
-              </button>
-              <button type="button" 
-                [class.active]="role === 'professional'" 
-                (click)="role = 'professional'">
-                {{ t().professional }}
-              </button>
-            </div>
-          </div>
-          
           <div class="error-msg" *ngIf="error()">{{error()}}</div>
 
           <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;" [disabled]="isLoading()">
             {{ isLoginMode ? (isLoading() ? t().loadingLogin : t().loginTab) : (isLoading() ? t().loadingRegister : t().registerTab) }}
           </button>
 
-          <div class="divider">
-            <span>{{ t().or }}</span>
-          </div>
-
-          <button type="button" (click)="loginGoogle()" class="btn btn-google" style="width: 100%" [disabled]="isLoading()">
-            <img *ngIf="!isLoading()" src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_Logo.svg" alt="Google" width="18">
-            {{ isLoading() ? t().loadingGoogle : t().googleBtn }}
-          </button>
+          <div id="google-btn-container" style="min-height: 40px; margin-top: 1rem;"></div>
         </form>
 
         <!-- Formulario de Verificación -->
@@ -218,13 +195,61 @@ import { CommonModule } from '@angular/common';
     }
   `]
 })
-export class LoginComponent {
+export class LoginComponent implements AfterViewInit {
   dataService = inject(DataService);
+  router = inject(Router);
+  ngZone = inject(NgZone);
+
+  // Reemplaza esto con tu ID de Cliente real de Google Cloud Console
+  clientId = '337222538178-v6l8240i1e71q92f3be2q0f453p8e3q3.apps.googleusercontent.com';
+
   isLoginMode = true;
   showVerification = signal(false);
   verificationCode = '';
   isLoading = signal(false);
   error = signal<string | null>(null);
+  name = '';
+  email = '';
+  password = '';
+  role: 'youth' = 'youth';
+
+  ngAfterViewInit() {
+    this.initGoogleBtn();
+  }
+
+  initGoogleBtn() {
+    const google = (window as any).google;
+    if (google && google.accounts) {
+      google.accounts.id.initialize({
+        client_id: this.clientId,
+        callback: (response: any) => this.handleGoogleResponse(response)
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('google-btn-container'),
+        { theme: 'outline', size: 'large', width: 350, text: 'continue_with' }
+      );
+    } else {
+      setTimeout(() => this.initGoogleBtn(), 500);
+    }
+  }
+
+  handleGoogleResponse(response: any) {
+    this.ngZone.run(() => {
+      this.isLoading.set(true);
+      try {
+        const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const googleEmail = payload.email;
+        const googleName = payload.name;
+        this.dataService.loginWithGoogle(this.role, googleEmail, googleName);
+        this.navigateToDashboard();
+      } catch (e) {
+        console.error('Error con Google API:', e);
+        this.error.set(this.t().errGeneric);
+      } finally {
+        this.isLoading.set(false);
+      }
+    });
+  }
 
   private translations = {
     es: {
@@ -285,18 +310,17 @@ export class LoginComponent {
 
   t = () => this.translations[this.dataService.lang()];
 
-  name = '';
-  email = '';
-  password = '';
-  role: 'youth' | 'professional' = 'youth';
-
-  private router = inject(Router);
-
   onSubmit() {
     this.error.set(null);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!this.email || !this.password || (!this.isLoginMode && !this.name)) {
+    // Validación estricta: Nombre obligatorio en registro
+    if (!this.isLoginMode && (!this.name || !this.name.trim())) {
+      this.error.set(this.t().errFill);
+      return;
+    }
+
+    if (!this.email || !this.password) {
       this.error.set(this.t().errFill);
       return;
     }
@@ -334,25 +358,6 @@ export class LoginComponent {
     }
   }
 
-  loginGoogle() {
-    this.error.set(null);
-    const promptedEmail = prompt(this.dataService.lang() === 'es' ? 'Introduce tu cuenta de Gmail:' : 'Sartu zure Gmail kontua:', 'usuario@gmail.com');
-    if (!promptedEmail || !promptedEmail.includes('@')) {
-      return;
-    }
-
-    this.isLoading.set(true);
-
-    try {
-      this.dataService.loginWithGoogle(this.role, promptedEmail, promptedEmail.split('@')[0]);
-      this.navigateToDashboard();
-    } catch (e) {
-      this.error.set(this.t().errGeneric);
-    } finally {
-      this.isLoading.set(false);
-    }
-  }
-
   onVerify() {
     this.error.set(null);
     if (!this.verificationCode) {
@@ -369,8 +374,6 @@ export class LoginComponent {
   }
 
   private navigateToDashboard() {
-    const user = this.dataService.currentUser();
-    const target = user?.role === 'youth' ? '/youth' : '/professional';
-    this.router.navigate([target]);
+    this.router.navigate(['/youth']);
   }
 }
