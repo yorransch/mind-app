@@ -17,7 +17,7 @@ import { CommonModule } from '@angular/common';
 
         <nav class="nav" [class.open]="isMenuOpen">
           <ng-container *ngIf="user()">
-            <a *ngIf="user()?.role === 'youth'" routerLink="/youth" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().home }}</a>
+            <a *ngIf="user()?.role === 'youth'" routerLink="/youth" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link" (click)="closeMenuAndNavigate('/youth')">{{ dataService.t().home }}</a>
             <a *ngIf="user()?.role === 'youth'" routerLink="/youth/check-in" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().checkIn }}</a>
             <a routerLink="/youth/resources" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">{{ dataService.t().resources }}</a>
             <a *ngIf="user()?.role === 'professional'" routerLink="/professional" routerLinkActive="active" class="nav-link" (click)="isMenuOpen = false">Pacientes</a>
@@ -179,5 +179,10 @@ export class HeaderComponent {
   logout() {
     this.dataService.logout();
     this.router.navigate(['/login']);
+  }
+
+  closeMenuAndNavigate(path: string) {
+    this.isMenuOpen = false;
+    this.router.navigate([path]);
   }
 }
