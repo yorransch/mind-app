@@ -339,6 +339,7 @@ export class LoginComponent implements AfterViewInit {
           this.navigateToDashboard();
         } else if (res.message === 'PENDING_VERIFICATION') {
           this.showVerification.set(true);
+          this.verificationCode = '123456'; // Auto-fill para demo
         } else {
           this.error.set(res.message);
         }
@@ -346,6 +347,7 @@ export class LoginComponent implements AfterViewInit {
         const res = this.dataService.register(this.name, this.email, this.password, this.role);
         if (res.success) {
           this.showVerification.set(true);
+          this.verificationCode = '123456'; // Auto-fill para demo
         } else {
           this.error.set(res.message);
         }
