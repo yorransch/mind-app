@@ -45,8 +45,10 @@ import { CommonModule } from '@angular/common';
   styles: [`
     .header {
       padding: 1rem 0;
-      z-index: 1000;
+      z-index: 5000;
       border-bottom: 1px solid rgba(255,255,255,0.3);
+      position: sticky; /* Ensure sticky is applied here if not global */
+      top: 0;
     }
     .header-content {
       display: flex;
@@ -140,7 +142,7 @@ import { CommonModule } from '@angular/common';
         flex-direction: column;
         padding: 2rem;
         gap: 1.5rem;
-        z-index: 1001;
+        z-index: 5001;
       }
       .nav.open { display: flex; }
       .header-actions {
