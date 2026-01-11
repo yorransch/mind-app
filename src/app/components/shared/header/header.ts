@@ -138,11 +138,13 @@ import { CommonModule } from '@angular/common';
         left: 0;
         right: 0;
         bottom: 0;
-        background: white;
+        background: #ffffff;
         flex-direction: column;
         padding: 2rem;
         gap: 1.5rem;
         z-index: 5001;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       }
       .nav.open { display: flex; }
       .header-actions {
