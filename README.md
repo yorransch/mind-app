@@ -25,3 +25,4 @@ Este proyecto es un MVP funcional de una plataforma de salud mental diseñada pa
 - **Ana García** (Joven)
 - **Markel Etxeberria** (Joven - Alerta de riesgo simulada)
 - **Panel Profesional**: Acceso total a estadísticas.
+# mind-app
